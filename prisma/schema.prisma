@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  address     String   @unique
+  role        String   @default("USER")
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  identities  WalletIdentity[]
+  sessions    Session[]
+  provider    ProviderProfile?
+  agents      Agent[]
+  workflows   Workflow[]
+  executions  Execution[]
+  audits      AuditLog[]
+}
+
+model WalletIdentity {
+  id        String @id @default(cuid())
+  userId    String
+  address   String @unique
+  user      User   @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+}
+
+model AuthNonce {
+  nonce     String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+}
+
+model ProviderProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id])
+  displayName String
+  verified    Boolean @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ServiceCategory {
+  name   String @id
+  agents Agent[]
+}
+
+model Agent {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  description    String
+  category       String
+  categoryRecord ServiceCategory @relation(fields: [category], references: [name])
+  avatar         String?
+  ownerId        String?
+  owner          User?    @relation(fields: [ownerId], references: [id])
+  providerName   String
+  status         String   @default("PENDING")
+  kind           String   @default("external")
+  priceUnits     BigInt
+  recipient      String
+  endpointUrl    String
+  method         String   @default("POST")
+  inputSchema    Json
+  outputSchema   Json
+  exampleInput   Json
+  exampleOutput  Json
+  documentation  String
+  ownershipToken String? @unique
+  ownershipVerifiedAt DateTime?
+  contractVerifiedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  endpoint       AgentEndpoint?
+  executions     Execution[]
+  workflowSteps  WorkflowStep[]
+  requirements   PaymentRequirement[]
+  @@index([status, category])
+  @@index([ownerId])
+}
+
+model AgentEndpoint {
+  id             String @id @default(cuid())
+  agentId        String @unique
+  agent          Agent @relation(fields: [agentId], references: [id])
+  url            String
+  method         String @default("POST")
+  approvedHost   String?
+  verifiedAt     DateTime?
+  lastCheckedAt  DateTime?
+}
+
+model PaymentRequirement {
+  id          String @id @default(cuid())
+  agentId     String
+  agent       Agent @relation(fields: [agentId], references: [id])
+  network     String
+  asset       String
+  amountUnits BigInt
+  recipient   String
+  createdAt   DateTime @default(now())
+  @@index([agentId, network])
+}
+
+model PaymentAuthorization {
+  id          String @id @default(cuid())
+  payloadHash String @unique
+  buyer       String
+  network     String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model PaymentTransaction {
+  id          String @id @default(cuid())
+  executionId String @unique
+  execution   Execution @relation(fields: [executionId], references: [id])
+  buyer       String
+  recipient   String
+  amountUnits BigInt
+  network     String
+  status      String
+  txHash      String? @unique
+  payloadHash String? @unique
+  receipt     Json?
+  earning     ProviderEarning?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([buyer, createdAt])
+  @@index([network, status])
+}
+
+model Execution {
+  id                 String @id @default(cuid())
+  idempotencyKey     String @unique
+  requestHash        String
+  paymentPayloadHash String? @unique
+  userId             String?
+  user               User? @relation(fields: [userId], references: [id])
+  agentId            String
+  agent              Agent @relation(fields: [agentId], references: [id])
+  workflowId         String?
+  workflow           Workflow? @relation(fields: [workflowId], references: [id])
+  workflowStepId     String? @unique
+  workflowStep       WorkflowStep? @relation(fields: [workflowStepId], references: [id])
+  input              Json
+  output             Json?
+  status             String @default("CREATED")
+  buyerAddress       String?
+  error              String?
+  payment            PaymentTransaction?
+  steps              ExecutionStep[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model ExecutionStep {
+  id          String @id @default(cuid())
+  executionId String
+  execution   Execution @relation(fields: [executionId], references: [id])
+  status      String
+  detail      String?
+  createdAt   DateTime @default(now())
+  @@index([executionId, createdAt])
+}
+
+model Workflow {
+  id             String @id @default(cuid())
+  userId         String
+  user           User @relation(fields: [userId], references: [id])
+  name           String
+  budgetUnits    BigInt
+  spentUnits     BigInt @default(0)
+  reservedUnits  BigInt @default(0)
+  status         String @default("APPROVED")
+  approvedAt     DateTime @default(now())
+  expiresAt      DateTime
+  maxExecutions  Int @default(3)
+  approvedProviders Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  steps          WorkflowStep[]
+  executions     Execution[]
+  @@index([userId, createdAt])
+}
+
+model WorkflowStep {
+  id             String @id @default(cuid())
+  workflowId     String
+  workflow       Workflow @relation(fields: [workflowId], references: [id])
+  agentId        String
+  agent          Agent @relation(fields: [agentId], references: [id])
+  position       Int
+  capUnits       BigInt
+  reservedAmountUnits BigInt @default(0)
+  input          Json
+  inputMode      String @default("STATIC")
+  status         String @default("PENDING")
+  execution      Execution?
+  @@unique([workflowId, position])
+}
+
+model ProviderEarning {
+  id          String @id @default(cuid())
+  paymentId   String @unique
+  payment     PaymentTransaction @relation(fields: [paymentId], references: [id])
+  recipient   String
+  amountUnits BigInt
+  createdAt   DateTime @default(now())
+  @@index([recipient, createdAt])
+}
+
+model AuditLog {
+  id        String @id @default(cuid())
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id])
+  action    String
+  target    String
+  detail    Json?
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
