@@ -6,6 +6,7 @@ import { Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, Bot, Check, CheckCir
 import { AppShell, PageHeading, EmptyState, Badge, WalletButton } from "@/components/ui";
 import { useWallet } from "@/components/wallet-provider";
 import { api, formatUsdc } from "@/lib/client";
+import { readPreference, savePreference } from "@/lib/browser-storage";
 import { BASE_CONFIG } from "@/lib/chain";
 import { fetchPaymentQuote, authorizeAndExecute, recoverPaidExecution, pendingPayments, type PendingPayment } from "@/lib/wallet-payment";
 
@@ -135,8 +136,8 @@ export function WalletPage() {
 
 export function SettingsPage() {
   const wallet = useWallet(); const [reduced, setReduced] = useState(false), [message, setMessage] = useState<string | null>(null);
-  useEffect(() => { const saved = localStorage.getItem("agentra-reduced-motion") === "true"; setReduced(saved); document.documentElement.dataset.reducedMotion = String(saved); }, []);
-  function saveMotion(value: boolean) { setReduced(value); localStorage.setItem("agentra-reduced-motion", String(value)); document.documentElement.dataset.reducedMotion = String(value); setMessage("Display preference saved on this device."); }
+  useEffect(() => { const saved = readPreference("agentra-reduced-motion") === "true"; setReduced(saved); document.documentElement.dataset.reducedMotion = String(saved); }, []);
+  function saveMotion(value: boolean) { setReduced(value); const saved = savePreference("agentra-reduced-motion", String(value)); document.documentElement.dataset.reducedMotion = String(value); setMessage(saved ? "Display preference saved on this device." : "Display preference applied for this visit."); }
   return <AppShell><PageHeading eyebrow="PREFERENCES" title="Make yourself at home." description="Manage your account connection and how Agentra feels on this device." /><div className="panel"><div className="panel-header"><h2>Account</h2><ShieldCheck size={18} /></div><div className="panel-body stack"><dl className="detail-list"><div><dt>Wallet address</dt><dd><code>{wallet.address ?? "Not connected"}</code></dd></div><div><dt>Session</dt><dd>{wallet.user ? "Authenticated with wallet signature" : "Not signed in"}</dd></div><div><dt>Network</dt><dd>{BASE_CONFIG.label}</dd></div></dl><div className="inline"><WalletButton />{wallet.address && !wallet.user && <button className="button secondary" onClick={() => void wallet.signIn()}>Sign in with wallet</button>}{wallet.address && <button className="button secondary" onClick={() => void wallet.disconnect()}>Sign out & disconnect</button>}</div><ErrorNotice error={wallet.error} /></div></div><section className="panel"><div className="panel-header"><h2>Display & accessibility</h2></div><div className="panel-body inline spread"><div><strong>Reduce decorative motion</strong><p className="muted">Keep the interface calmer. Your operating system preference is also respected.</p></div><label className="switch"><input aria-label="Reduce decorative motion" type="checkbox" checked={reduced} onChange={e => saveMotion(e.target.checked)} /><span /></label></div></section>{message && <p className="notice" role="status"><Check size={16} />{message}</p>}<section className="panel panel-body"><h3>Payment settings</h3><p className="muted">Every payment requires explicit approval. There is no unlimited spending mode. Network selection is controlled by the deployment configuration.</p><Link href="/wallet" className="text-link">Open wallet dashboard <ArrowRight size={14} /></Link></section></AppShell>;
 }
 

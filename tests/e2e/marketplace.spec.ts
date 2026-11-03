@@ -61,3 +61,18 @@ test('workspace navigation works at the configured viewport without horizontal o
   await expect(page.getByRole('heading', { level: 1, name: 'Every payment. Clear as day.' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
 });
+
+test('public browsing survives browser storage being blocked', async ({ page }) => {
+  await page.addInitScript(() => {
+    for (const key of ['localStorage','sessionStorage']) Object.defineProperty(window,key,{configurable:true,get(){throw new DOMException('Storage is blocked','SecurityError');}});
+    Object.defineProperty(window,'ethereum',{configurable:true,get(){throw new Error('Wallet extension unavailable');}});
+  });
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The marketplace');
+  await page.goto('/settings');
+  await page.getByRole('checkbox',{name:'Reduce decorative motion'}).check();
+  await expect(page.getByRole('status')).toContainText('applied for this visit');
+  expect(errors).toEqual([]);
+});
