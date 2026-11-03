@@ -63,3 +63,11 @@ X402_FACILITATOR_URL=https://x402.org/facilitator
 Use the actual assigned site origin for `APP_URL`; wallet authentication rejects a different origin. The Vercel build command automatically generates the client, applies checksummed migrations, seeds the three reference listings, and builds the application. Configure DATABASE_URL and the other values before deploying; no separate terminal step is needed on Vercel. Repeated seeding preserves a service disabled by an administrator. Preview deployments should use their own database and matching origin. Do not put database passwords, private keys or hosting tokens in GitHub files or chat. No wallet private key is needed by this application.
 
 Download the professional product and submission brief from `docs/AGENTRA_Product_and_Submission_Brief.docx`. Add a real deployed URL and confirmed transaction evidence to a submission only after those exist.
+
+## Existing Neon database during first deployment
+
+If the database was initialized previously, the migration runner recognizes an existing complete Agentra schema after comparing its columns, defaults, indexes and constraints with the audited migration versions in a temporary scratch schema. It records the verified migration history and applies any remaining migration; it does not recreate application tables or delete application data. Migration checksums remain enforced.
+
+An incomplete or different schema is rejected with an actionable error. In that case use a dedicated empty database within the existing Neon project, or have the existing schema reviewed; do not delete tables or mark migrations as applied without verification.
+
+Local regression checks: `node --env-file=.env --test tests/migrations.integration.mjs`. They create and remove their own temporary local databases, exercising fresh initialization, both legacy schema versions, incompatible schema rejection and modified-checksum rejection.

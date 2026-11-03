@@ -52,3 +52,5 @@ See [payments](payments.md) for the real-settlement procedure and [deployment](d
 ## Shipping preparation update
 
 On 3 November, the production build, 42 unit checks, 7 PostgreSQL payment integration checks, and 21 browser/API checks passed again. The release adds Node.js 24 startup with managed-proxy support, Vercel configuration, and a database health endpoint. The runtime dependency audit reported zero vulnerabilities. The build retains a viem/ox warning from an unused Tempo-chain dependency; Base flows passed the recorded checks. No real settlement was broadcast. Hosting and a persistent hosted database still require the owner’s account configuration.
+
+The first hosted build reached Neon but encountered pre-existing application tables without this runner's migration history. A subsequent migration update adds catalog-verified legacy baselining. Five additional local database regression checks passed: fresh database, initial legacy schema, current legacy schema, incompatible schema preservation, and changed-checksum rejection. Actual hosted schema compatibility must still be confirmed by the next Vercel deployment.
