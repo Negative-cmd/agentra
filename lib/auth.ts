@@ -4,17 +4,19 @@ import { verifyMessage } from 'viem';
 import { SiweMessage } from 'siwe';
 import { db } from './db';
 import { ApiError, rateLimit, requestIp } from './api';
+import { canonicalAuthOrigin, isTrustedAuthOrigin } from './auth-origins';
 
 export const SESSION_COOKIE = 'agentra_session';
 export const NONCE_COOKIE = 'agentra_nonce';
 export const SESSION_SECONDS = 2 * 60 * 60;
 export const cookieOptions = { httpOnly: true, sameSite: 'strict' as const, secure: process.env.NODE_ENV === 'production', path: '/' };
-export const authOrigin = () => new URL(process.env.APP_URL ?? 'http://localhost:3000').origin;
+export const authOrigin = canonicalAuthOrigin;
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
 export function requireSameOrigin(request: Request) {
   const origin = request.headers.get('origin');
-  if (origin !== authOrigin()) throw new ApiError(403, 'Request origin is not allowed');
+  if (!isTrustedAuthOrigin(origin)) throw new ApiError(403, 'Request origin is not allowed');
+  return origin;
 }
 
 export async function currentUser() {
@@ -45,10 +47,11 @@ export async function createNonce(request: Request) {
   return nonce;
 }
 
-export async function authenticateWallet(message: string, signature: `0x${string}`, nonceCookie?: string) {
+export async function authenticateWallet(message: string, signature: `0x${string}`, nonceCookie?: string, requestOrigin = authOrigin()) {
   let parsed: SiweMessage;
   try { parsed = new SiweMessage(message); } catch { throw new ApiError(400, 'Invalid sign-in message'); }
-  const origin = new URL(authOrigin());
+  if (!isTrustedAuthOrigin(requestOrigin)) throw new ApiError(401, 'Sign-in origin is not trusted');
+  const origin = new URL(requestOrigin);
   const chainId = process.env.NEXT_PUBLIC_BASE_NETWORK === 'base' ? 8453 : 84532;
   if (!nonceCookie || parsed.nonce !== nonceCookie || parsed.domain !== origin.host || parsed.uri !== origin.origin || parsed.version !== '1' || parsed.chainId !== chainId) {
     throw new ApiError(401, 'Sign-in domain, network, or nonce does not match');

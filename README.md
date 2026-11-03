@@ -46,7 +46,7 @@ In this managed cloud environment, Node.js 24 must honor the provided outbound p
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string. |
-| `APP_URL` | Exact application origin for authentication and state-changing requests. |
+| `APP_URL` | Explicit custom or standalone origin. Vercel production/deployment domains are also trusted automatically from platform variables. |
 | `NEXT_PUBLIC_BASE_NETWORK` | `base-sepolia` by default; `base` selects Base mainnet. |
 | `NEXT_PUBLIC_BASE_RPC_URL` | Browser RPC URL; never put a secret API key in a public variable. |
 | `BASE_RPC_URL` | Server RPC override. |
